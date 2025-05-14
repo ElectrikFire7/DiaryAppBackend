@@ -1,9 +1,12 @@
 from flask import Flask, jsonify, request
 from pymongo import MongoClient, errors
+from dotenv import load_dotenv
 import os
 
+load_dotenv()
+
 app = Flask(__name__)
-MONGO_URI = "mongodb+srv://firstUser:falooc03@cluster0.n7ftekv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+MONGO_URI = os.getenv("MONGO_URI")
 
 try:
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
