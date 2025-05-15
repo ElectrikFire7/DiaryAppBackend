@@ -20,6 +20,7 @@ except errors.ServerSelectionTimeoutError as err:
 
 db = client["diaryApp"]
 collection = db["generateRequests"]
+collection2 = db ["images"]
 
 #generate request routes
 @app.route('/generate', methods=['POST'])
@@ -89,7 +90,34 @@ def upload_image():
     save_path = os.path.join(IMAGES_FOLDER, filename)
     image.save(save_path)
 
-    return {'message': f'Image saved as {filename}'}, 200
+    query_filter = {
+        "filename": filename,
+    }
+
+    data = {
+        "filename": filename,
+    }
+
+    try:
+        result = collection2.replace_one(query_filter, data, upsert=True)
+
+        if result.upserted_id:
+            return jsonify({"message": f'Image saved as - {filename}'}), 201
+        else:
+            return jsonify({"message": f'failed to save image - {filename}'}), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/image', methods=['GET'])
+def get_all_images():
+    try:
+        all_images = list(collection2.find())
+        for image in all_images:
+            image["_id"] = str(image["_id"])  # Convert ObjectId to string
+        return jsonify(all_images), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/image/<filename>', methods=['GET'])
 def get_image(filename):
@@ -108,7 +136,22 @@ def delete_image(filename):
         return {'error': 'File not found'}, 404
 
     os.remove(filepath)
-    return {'message': f'Image {filename} deleted successfully'}, 200
+    print(f"Deleted file: {filepath}")
+
+    query_filter = {
+        "filename": filename,
+    }
+
+    try:
+        result = collection2.delete_one(query_filter)
+
+        if result.deleted_count > 0:
+            return jsonify({"message": f'Image - {filename} deleted successfully.'}), 200
+        else:
+            return jsonify({"message": f'Image - {filename} not found in database.'}), 404
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
