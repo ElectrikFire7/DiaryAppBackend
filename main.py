@@ -127,13 +127,10 @@ def get_image(filename):
         return {'error': 'Image not found in database'}, 404
     
     try:
-        image_data = base64.b64decode(image_doc['image_base64'])
-        return send_file(
-            io.BytesIO(image_data),
-            mimetype='image/jpeg',
-            as_attachment=False,
-            download_name=filename
-        )
+        return jsonify({
+            'filename': image_doc['filename'],
+            'image_base64': image_doc['image_base64']
+        }), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
