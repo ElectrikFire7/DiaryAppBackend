@@ -1,11 +1,10 @@
 from flask import Flask, jsonify, request, send_file
 from pymongo import MongoClient, errors
 from dotenv import load_dotenv
-import os
+import os, io
+import base64
 
 load_dotenv()
-IMAGES_FOLDER = "images"
-os.makedirs(IMAGES_FOLDER, exist_ok=True)
 
 app = Flask(__name__)
 MONGO_URI = os.getenv("MONGO_URI")
@@ -87,24 +86,25 @@ def upload_image():
     image = request.files['image']
     filename = request.form['filename']
 
-    save_path = os.path.join(IMAGES_FOLDER, filename)
-    image.save(save_path)
-
     query_filter = {
         "filename": filename,
     }
 
-    data = {
-        "filename": filename,
-    }
-
     try:
+        image_bytes = image.read()
+        encoded_image = base64.b64encode(image_bytes).decode('utf-8')
+
+        data = {
+            "filename": filename,
+            "image_base64": encoded_image,
+        }
+
         result = collection2.replace_one(query_filter, data, upsert=True)
 
         if result.upserted_id:
             return jsonify({"message": f'Image saved as - {filename}'}), 201
         else:
-            return jsonify({"message": f'failed to save image - {filename}'}), 200
+            return jsonify({"message": f'Image was updated - {filename}'}), 200
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -121,23 +121,25 @@ def get_all_images():
 
 @app.route('/image/<filename>', methods=['GET'])
 def get_image(filename):
-    filepath = os.path.join(IMAGES_FOLDER, filename)
+    image_doc = collection2.find_one({'filename': filename})
 
-    if not os.path.exists(filepath):
-        return {'error': 'File not found'}, 404
+    if not image_doc:
+        return {'error': 'Image not found in database'}, 404
+    
+    try:
+        image_data = base64.b64decode(image_doc['image_base64'])
+        return send_file(
+            io.BytesIO(image_data),
+            mimetype='image/jpeg',
+            as_attachment=False,
+            download_name=filename
+        )
 
-    return send_file(filepath, mimetype='image/jpg')
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/image/<filename>', methods=['DELETE'])
 def delete_image(filename):
-    filepath = os.path.join(IMAGES_FOLDER, filename)
-
-    if not os.path.exists(filepath):
-        return {'error': 'File not found'}, 404
-
-    os.remove(filepath)
-    print(f"Deleted file: {filepath}")
-
     query_filter = {
         "filename": filename,
     }
@@ -149,7 +151,7 @@ def delete_image(filename):
             return jsonify({"message": f'Image - {filename} deleted successfully.'}), 200
         else:
             return jsonify({"message": f'Image - {filename} not found in database.'}), 404
-        
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
