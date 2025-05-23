@@ -20,6 +20,7 @@ except errors.ServerSelectionTimeoutError as err:
 db = client["diaryApp"]
 collection = db["generateRequests"]
 collection2 = db ["images"]
+usersCollections = db["users"]
 
 #generate request routes
 @app.route('/generate', methods=['POST'])
@@ -149,6 +150,59 @@ def delete_image(filename):
         else:
             return jsonify({"message": f'Image - {filename} not found in database.'}), 404
 
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+
+    if not data or "username" not in data or "password" not in data:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    query_filter = {
+        "username": data["username"],
+        "password": data["password"]
+    }
+
+    try:
+        user = usersCollections.find_one(query_filter)
+
+        if user:
+            return jsonify({"message": "Login successful."}), 200
+        else:
+            return jsonify({"message": "Invalid username or password."}), 401
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/signup', methods=['POST'])
+def signup():
+    data = request.get_json()
+
+    if not data or "username" not in data or "password" not in data:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    query_filter = {
+        "username": data["username"],
+    }
+
+    try:
+        existing_user = usersCollections.find_one(query_filter)
+
+        if existing_user:
+            return jsonify({"message": "Username already exists."}), 409
+
+        new_user = {
+            "username": data["username"],
+            "password": data["password"]
+        }
+
+        result = usersCollections.insert_one(new_user)
+        print(f"New user created with ID: {result}")
+
+        return jsonify({"message": "User created successfully."}), 201
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
