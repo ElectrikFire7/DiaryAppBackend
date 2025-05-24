@@ -1,13 +1,15 @@
 from flask import Flask, jsonify, request, send_file
 from pymongo import MongoClient, errors
 from dotenv import load_dotenv
-import os, io
+import os, subprocess
 import base64
 
 load_dotenv()
 
 app = Flask(__name__)
 MONGO_URI = os.getenv("MONGO_URI")
+KAGGLE_USERNAME = os.getenv("KAGGLE_USERNAME")
+KAGGLE_KEY = os.getenv("KAGGLE_KEY")
 
 try:
     client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
@@ -205,6 +207,31 @@ def signup():
         
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+@app.route('/generationscript', methods=['POST'])
+def run_generation_script():
+    try:
+        # Ensure the environment variables are set
+        if not KAGGLE_USERNAME or not KAGGLE_KEY:
+            return jsonify({"error": "Kaggle credentials are not set."}), 400
+        
+        env = os.environ.copy()
+        env['KAGGLE_USERNAME'] = KAGGLE_USERNAME
+        env['KAGGLE_KEY'] = KAGGLE_KEY
+
+        # Run the Kaggle command to generate images
+        subprocess.run(["kaggle", "kernels", "push", "-p", "notebooks"], check=True, env=env)
+
+        return jsonify({"message": "Generation script started successfully."}), 200
+    
+    except subprocess.CalledProcessError as e:
+        return jsonify({"error": f"Script execution failed: {str(e)}"}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "OK"}), 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

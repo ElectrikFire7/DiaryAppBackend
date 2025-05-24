@@ -1,0 +1,11 @@
+{
+    "id": "ElectrikFire7/diary-image-generation-script",
+    "title": "Diary Image Generation Script",
+    "code_file": "diary_image_generation_script.ipynb",
+    "language": "python",
+    "kernel_type": "notebook",
+    "is_private": true,
+    "enable_gpu": true,
+    "enable_internet": true,
+    "run_on_kernel_push": true
+}
